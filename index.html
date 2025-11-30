@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Retro GameBoy Web Console</title>
+  <script src="https://cjrtnc.leaningtech.com/3.0/cj3loader.js"></script>
+
+  <style>
+    /* --- FONTS & BASICS --- */
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700&display=swap'); /* For the Bezel Text */
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #121212;
+      color: white;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* --- THE CONSOLE BODY (Classic Beige) --- */
+    .gameboy {
+      width: 900px; 
+      padding: 40px;
+      
+      /* Classic Game Boy "Off-White/Beige" */
+      background-color: #dcdccb; 
+
+      /* Rounded Rectangle with curved bottom-right */
+      border-radius: 20px 20px 90px 20px;
+
+      /* 3D Depth Shadows */
+      box-shadow: 
+        15px 15px 0px #9da192, /* Hard shadow for depth */
+        20px 20px 40px rgba(0,0,0,0.5), /* Soft ambient shadow */
+        inset 5px 5px 10px rgba(255,255,255,0.8), /* Highlight */
+        inset -5px -5px 15px rgba(0,0,0,0.1); /* Shading */
+      
+      position: relative;
+    }
+
+    /* The Decorative Vents (Bottom Right) */
+    .gameboy::after {
+        content: " ";
+        position: absolute;
+        bottom: 35px;
+        right: 35px;
+        width: 120px;
+        height: 8px;
+        background: transparent;
+        /* Using box-shadow to create multiple lines efficiently */
+        box-shadow: 
+            0 -15px 0 rgba(157, 161, 146, 0.6), 
+            0 -30px 0 rgba(157, 161, 146, 0.6), 
+            0 -45px 0 rgba(157, 161, 146, 0.6),
+            0 -60px 0 rgba(157, 161, 146, 0.6);
+        border-radius: 4px;
+        transform: rotate(-25deg);
+    }
+
+    /* --- THE SCREEN BEZEL (Dark Grey) --- */
+    .screen-bezel {
+      background: #5c5f68; 
+      padding: 70px 50px 40px 50px; /* Top padding increased for text */
+      border-radius: 15px 15px 50px 15px; /* Curved glass cover shape */
+      box-shadow: 
+        inset 2px 2px 5px rgba(0,0,0,0.5), 
+        0 0 0 4px #b8b4a5; /* Small plastic ridge */
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    /* The "DOT MATRIX" Text lines */
+    .screen-bezel::before {
+        content: "DOT MATRIX WITH STEREO SOUND";
+        position: absolute;
+        top: 20px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #b8b4a5;
+        font-family: 'Inter', sans-serif;
+        font-weight: 800;
+        font-size: 14px;
+        letter-spacing: 3px;
+        font-style: italic;
+        
+        /* The Blue and Magenta Lines */
+        border-top: 3px solid #003a75; 
+        border-bottom: 3px solid #8b1e3f; 
+        
+        padding: 6px 0;
+        margin: 0 50px;
+    }
+
+    /* --- POWER LED --- */
+    .power-section {
+        position: absolute;
+        top: 40%;
+        left: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        z-index: 5;
+    }
+
+    .power-led {
+        width: 16px;
+        height: 16px;
+        background: #331111;
+        border-radius: 50%;
+        box-shadow: inset 2px 2px 3px #000;
+        transition: all 0.2s;
+    }
+    .power-led.on {
+        background: #ff0000;
+        box-shadow: 0 0 15px #ff3333, inset -2px -2px 4px #500;
+    }
+    .battery-text { font-size: 10px; color: #b8b4a5; font-family: sans-serif; font-weight: bold; }
+
+    /* --- THE LCD SCREEN --- */
+    .screen-container {
+      width: 800px; 
+      height: 600px; 
+      
+      /* Classic "Pea Soup" Green (OFF STATE) */
+      background: #809610; 
+      opacity: 0.3;
+      
+      border: 6px solid #4a4d52;
+      box-shadow: inset 10px 10px 30px rgba(0,0,0,0.4);
+      
+      display: flex;          
+      align-items: center;        
+      justify-content: center;    
+      overflow: hidden;
+      position: relative;
+      transition: all 0.5s;
+    }
+
+    /* ON STATE */
+    .screen-container.powered-on {
+       background: #9bbc0f; /* Lighter Active Green */
+       opacity: 1;
+       box-shadow: inset 4px 4px 10px rgba(0,0,0,0.2), 0 0 20px rgba(155, 188, 15, 0.2);
+    }
+
+    /* Scanlines */
+    .screen-container::after {
+        content: " ";
+        display: block;
+        position: absolute;
+        top: 0; left: 0; bottom: 0; right: 0;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%);
+        background-size: 100% 4px;
+        z-index: 5;
+        pointer-events: none;
+    }
+
+    /* --- CHEERPJ CANVAS STYLING --- */
+    #cheerpj-display canvas {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain !important; /* Preserves aspect ratio */
+        background: black; 
+        image-rendering: pixelated; /* CRISP PIXELS */
+        image-rendering: -moz-crisp-edges;
+    }
+
+    /* --- STARTUP ANIMATION --- */
+    #boot-logo {
+        font-family: 'Press Start 2P', cursive;
+        color: #0f380f;
+        font-size: 32px;
+        position: absolute;
+        top: -50px;
+        display: none;
+        z-index: 20;
+    }
+
+    @keyframes scrollNintendo {
+        0% { top: -50px; opacity: 0; }
+        10% { opacity: 1; }
+        100% { top: 45%; }
+    }
+
+    #menu-overlay {
+        display: none;
+        text-align: center;
+        color: #0f380f;
+        font-weight: bold;
+        z-index: 10;
+        font-family: 'Press Start 2P', cursive;
+        font-size: 16px;
+        line-height: 2;
+    }
+
+    /* --- CONTROLS --- */
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 50px;
+      padding: 0 80px;
+    }
+
+    /* D-PAD */
+    .dpad {
+      transform: scale(1.6); /* Large controls */
+      transform-origin: top left;
+      width: 100px;
+      height: 100px;
+      position: relative;
+    }
+    .dpad button {
+      position: absolute;
+      width: 32px; height: 32px;
+      background: #111; /* Classic Black */
+      border: none; cursor: pointer;
+      box-shadow: 0 4px 0 #000;
+    }
+    .dpad button:active { box-shadow: 0 0 0; transform: translateY(4px); }
+    
+    #btn-up { top: 0; left: 34px; border-radius: 4px 4px 0 0; }
+    #btn-down { bottom: 0; left: 34px; border-radius: 0 0 4px 4px; }
+    #btn-left { top: 34px; left: 0; border-radius: 4px 0 0 4px; }
+    #btn-right { top: 34px; right: 0; border-radius: 0 4px 4px 0; }
+    #dpad-center { top: 34px; left: 34px; background: #111; pointer-events: none; box-shadow: none; }
+    /* Little dimple in the middle */
+    #dpad-center::after {
+        content: ""; position: absolute; top: 10px; left: 10px; width: 12px; height: 12px;
+        background: radial-gradient(circle, #222 20%, #111 80%); border-radius: 50%;
+    }
+
+    /* A/B BUTTONS */
+    .ab-buttons {
+      transform: scale(1.6) rotate(-25deg); 
+      transform-origin: top right;
+      display: flex; gap: 18px;
+      align-items: flex-end;
+      margin-bottom: 20px;
+    }
+    .ab-buttons button {
+      width: 48px; height: 48px;
+      background: #9f0f35; /* Classic Magenta */
+      border-radius: 50%; border: none;
+      box-shadow: 3px 4px 0px #551122;
+      color: rgba(0,0,0,0.2);
+      font-weight: 900; font-family: sans-serif; font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ab-buttons button:active { box-shadow: 0 0 0; transform: translate(3px, 4px); }
+
+    /* START/SELECT */
+    .meta-buttons {
+      transform: scale(1.6);
+      margin-top: 30px;
+      gap: 30px;
+      display: flex; justify-content: center;
+    }
+    .meta-buttons button {
+      width: 60px; height: 14px;
+      background: #999;
+      border-radius: 10px;
+      border: 1px solid #777;
+      transform: rotate(-25deg);
+      cursor: pointer;
+      box-shadow: 1px 2px 0 #555;
+    }
+    .meta-buttons button:active { box-shadow: none; transform: rotate(-25deg) translateY(2px); }
+
+    /* --- POWER SWITCH --- */
+    .power-switch-container {
+        position: absolute;
+        right: -80px; 
+        top: 100px;
+        text-align: center;
+    }
+    #power-btn {
+        width: 50px; height: 50px;
+        border-radius: 50%;
+        border: 4px solid #444;
+        background: #a00; color: white;
+        font-size: 24px; cursor: pointer;
+        box-shadow: 0 5px 10px rgba(0,0,0,0.5), inset 2px 2px 5px rgba(255,255,255,0.3);
+        transition: all 0.2s;
+        display: flex; align-items: center; justify-content: center;
+    }
+    #power-btn:hover { background: #c00; }
+    #power-btn.active {
+        background: #f00;
+        box-shadow: 0 0 15px #f00, inset 0 0 10px #ffaaaa;
+        border-color: #888;
+    }
+
+    /* GAME LIST */
+    .game-list {
+      margin-top: 30px;
+      width: 100%;
+      background: #222;
+      border-radius: 8px;
+      padding: 15px;
+      box-sizing: border-box;
+      border-top: 25px solid #111;
+      opacity: 0.3; pointer-events: none;
+      transition: opacity 0.5s;
+    }
+    .game-list.powered {
+        opacity: 1; pointer-events: all;
+    }
+    .game-btn {
+      width: 100%; padding: 12px; margin-bottom: 6px;
+      background: #333; color: #aaa;
+      border: 1px solid #444; text-align: left; cursor: pointer;
+      font-family: 'Press Start 2P', cursive; font-size: 12px;
+    }
+    .game-btn:hover { background: #444; color: white; }
+    .game-btn.selected { background: #8bac0f; color: #0f380f; }
+
+  </style>
+</head>
+
+<body>
+
+  <h1>Web Console</h1>
+
+  <div class="gameboy">
+    
+    <div class="power-switch-container">
+        <button id="power-btn" onclick="togglePower()">&#x23FB;</button>
+        <div style="font-size: 10px; color: #888; margin-top:5px;">POWER</div>
+    </div>
+
+    <div class="screen-bezel">
+        <div class="power-section">
+            <div class="power-led" id="powerLed"></div>
+            <span class="battery-text">BATTERY</span>
+        </div>
+
+        <div class="screen-container" id="screen">
+            <div id="boot-logo">Nicktendo®</div>
+            
+            <div id="menu-overlay">
+                PLAYER 1<br><br>
+                INSERT CARTRIDGE<br>
+                BELOW
+            </div>
+
+            <div id="cheerpj-display"></div>
+        </div>
+        
+        <div style="text-align: center; color: #302060; margin-top: 25px; font-style: italic; font-weight:900; letter-spacing: 2px; font-size: 18px; font-family: sans-serif;">Nicktendo GAME BOY</div>
+    </div>
+
+    <div class="controls">
+      <div class="dpad">
+        <button id="btn-up" data-key="ArrowUp"></button>
+        <button id="btn-left" data-key="ArrowLeft"></button>
+        <button id="dpad-center"></button>
+        <button id="btn-right" data-key="ArrowRight"></button>
+        <button id="btn-down" data-key="ArrowDown"></button>
+      </div>
+
+      <div class="ab-buttons">
+        <div style="display:flex; flex-direction:column; align-items:center;">
+             <button id="btn-b" data-key="x">B</button>
+             <div style="font-size: 14px; color: #302060; font-weight:bold; margin-top:5px; font-family:sans-serif;">B</div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; margin-bottom: 25px;">
+             <button id="btn-a" data-key="z">A</button>
+             <div style="font-size: 14px; color: #302060; font-weight:bold; margin-top:5px; font-family:sans-serif;">A</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="meta-buttons">
+      <div style="text-align:center;">
+          <button id="btn-select" data-key="Shift"></button>
+          <div style="font-size: 12px; color: #302060; font-weight:bold; margin-top: 8px; font-family:sans-serif;">SELECT</div>
+      </div>
+      <div style="text-align:center;">
+          <button id="btn-start" data-key="Enter"></button>
+          <div style="font-size: 12px; color: #302060; font-weight:bold; margin-top: 8px; font-family:sans-serif;">START</div>
+      </div>
+    </div>
+
+    <div class="game-list" id="cartridge-slot">
+      <button class="game-btn" onclick="loadGame('games/snake.jar', this)">Cartridge 1: SNAKE</button>
+      <button class="game-btn" style="color: #faa" onclick="resetConsole()">[ RESET CONSOLE ]</button>
+    </div>
+
+  </div>
+
+  <script>
+    let isPoweredOn = false;
+    let cjInitialized = false;
+
+    const els = {
+        screen: document.getElementById('screen'),
+        led: document.getElementById('powerLed'),
+        bootLogo: document.getElementById('boot-logo'),
+        menu: document.getElementById('menu-overlay'),
+        gameDisplay: document.getElementById('cheerpj-display'),
+        powerBtn: document.getElementById('power-btn'),
+        cartSlot: document.getElementById('cartridge-slot')
+    };
+
+    async function togglePower() {
+        if (isPoweredOn) {
+            // --- POWER OFF ---
+            isPoweredOn = false;
+            els.powerBtn.classList.remove('active');
+            els.led.classList.remove('on');
+            els.screen.classList.remove('powered-on'); 
+            els.cartSlot.classList.remove('powered');
+            
+            els.bootLogo.style.display = 'none';
+            els.menu.style.display = 'none';
+            els.gameDisplay.style.display = 'none';
+            els.gameDisplay.innerHTML = ""; 
+
+        } else {
+            // --- POWER ON ---
+            isPoweredOn = true;
+            els.powerBtn.classList.add('active');
+            els.led.classList.add('on');
+            els.screen.classList.add('powered-on');
+            els.cartSlot.classList.add('powered');
+
+            // 1. Play Boot Animation
+            els.bootLogo.style.display = 'block';
+            els.bootLogo.style.animation = 'scrollNintendo 2.5s ease-out forwards';
+
+            // 2. Pre-load CheerpJ in background
+            if (!cjInitialized) {
+                 cheerpjInit({ clipboardMode: "permission", enablePreciseAppTimer: true })
+                    .then(() => { cjInitialized = true; });
+            }
+
+            // 3. Show Menu
+            setTimeout(() => {
+                if(!isPoweredOn) return; 
+                els.bootLogo.style.display = 'none';
+                els.menu.style.display = 'block';
+            }, 2600);
+        }
+    }
+
+    async function loadGame(jarName, btnElement) {
+        if (!isPoweredOn) return;
+
+        document.querySelectorAll('.game-btn').forEach(b => b.classList.remove('selected'));
+        if(btnElement) btnElement.classList.add('selected');
+
+        els.menu.innerHTML = "READING<br>CARTRIDGE...";
+        
+        if (!cjInitialized) {
+            await cheerpjInit({ clipboardMode: "permission", enablePreciseAppTimer: true });
+            cjInitialized = true;
+        }
+
+        setTimeout(async () => {
+            els.menu.style.display = 'none';
+            els.gameDisplay.style.display = 'block';
+            els.gameDisplay.innerHTML = ""; 
+
+            try {
+                // FORCE 800x600 Display
+                cheerpjCreateDisplay(800, 600, els.gameDisplay);
+                
+                // Mount to /app/ virtual path
+                await cheerpjRunJar("/app/" + jarName, "");
+                
+                window.focus();
+            } catch (e) {
+                console.error(e);
+                els.menu.innerHTML = "BAD<br>CARTRIDGE";
+                els.menu.style.display = 'block';
+            }
+        }, 1000);
+    }
+
+    function resetConsole() {
+        if(isPoweredOn) {
+            togglePower();
+            setTimeout(togglePower, 500);
+        }
+    }
+
+    // --- CONTROLS ---
+    const keyMap = {
+        'ArrowUp':   { code: 'ArrowUp', keyCode: 38 },
+        'ArrowDown': { code: 'ArrowDown', keyCode: 40 },
+        'ArrowLeft': { code: 'ArrowLeft', keyCode: 37 },
+        'ArrowRight':{ code: 'ArrowRight', keyCode: 39 },
+        'z':         { code: 'KeyZ', keyCode: 90 }, // A
+        'x':         { code: 'KeyX', keyCode: 88 }, // B
+        'Enter':     { code: 'Enter', keyCode: 13 }, // Start
+        'Shift':     { code: 'ShiftLeft', keyCode: 16 } // Select
+    };
+
+    function triggerKey(keyName, type) {
+        if (!isPoweredOn || !keyMap[keyName]) return;
+        const k = keyMap[keyName];
+        const event = new KeyboardEvent(type, {
+            key: keyName, code: k.code, keyCode: k.keyCode, which: k.keyCode,
+            bubbles: true, cancelable: true
+        });
+        document.dispatchEvent(event);
+
+        const btn = document.querySelector(`button[data-key="${keyName}"]`);
+        if(btn) {
+            type === 'keydown' ? btn.classList.add('active') : btn.classList.remove('active');
+        }
+    }
+
+    document.querySelectorAll('button[data-key]').forEach(btn => {
+        const key = btn.getAttribute('data-key');
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); triggerKey(key, 'keydown'); }, {passive: false});
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); triggerKey(key, 'keyup'); });
+        btn.addEventListener('mousedown', (e) => { e.preventDefault(); triggerKey(key, 'keydown'); });
+        btn.addEventListener('mouseup', (e) => { e.preventDefault(); triggerKey(key, 'keyup'); });
+        btn.addEventListener('mouseleave', () => triggerKey(key, 'keyup'));
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if(!isPoweredOn) return;
+        const btn = document.querySelector(`button[data-key="${e.key}"]`) || 
+                    document.querySelector(`button[data-key="${e.key.toLowerCase()}"]`);
+        if(btn) btn.classList.add('active');
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        const btn = document.querySelector(`button[data-key="${e.key}"]`) || 
+                    document.querySelector(`button[data-key="${e.key.toLowerCase()}"]`);
+        if(btn) btn.classList.remove('active');
+    });
+
+  </script>
+</body>
+</html>

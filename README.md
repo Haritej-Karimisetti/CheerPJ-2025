@@ -10,7 +10,7 @@ LED indicator, startup animation, cartridge loading, and fully
 functional A/B, D-Pad, Start, and Select buttons. The project also
 includes a built-in game loader for `.jar` files.
 
-## LIVE LINK : [Click Here](https://haritej-karimisetti.github.io/CheerPJ-2025/](https://cheer-pj-2025.vercel.app/)
+## LIVE LINK : [Click Here](https://cheer-pj-2025.vercel.app/)
 
 ## Features
 

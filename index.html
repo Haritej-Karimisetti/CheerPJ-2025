@@ -475,7 +475,7 @@
                 cheerpjCreateDisplay(800, 600, els.gameDisplay);
                 
                 // Mount to /app/ virtual path
-                await cheerpjRunJar("games/" + jarName, "");
+                await cheerpjRunJar("/app/" + jarName, "");
                 
                 window.focus();
             } catch (e) {
@@ -546,4 +546,5 @@
 </body>
 
 </html>
+
 
